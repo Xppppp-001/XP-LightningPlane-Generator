@@ -1,0 +1,4 @@
+FAIL
+PID=37820
+TOKEN=XP_UI_SMOKE_R031_PROBE
+ERROR=-- 运行时错误: [XP_UI_TEST_FAIL] 控件中文标题正确：chkWaypointAutoAddFaces；actual=平滑时允许自动加面；expected=平滑时允许额外加面

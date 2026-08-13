@@ -1,0 +1,4 @@
+FAIL
+PID=56372
+TOKEN=XP_UI_SMOKE_R027_20260812
+ERROR=-- 类型错误: 调用需要函数或类，得到的是: undefined
