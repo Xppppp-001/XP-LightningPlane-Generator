@@ -8,13 +8,13 @@
 ## 备份内容
 
 - `XP闪电面片生成器_R040_完整源码.zip`
-  - SHA256：`2599E6CFEAF9185253590947CF511577313F6D2B9FD836A310FACD769E80DBB3`
+  - SHA256：`D0EC75B89053429C2549DE0C9D8998FF2BFCCE86D1D7396CB8B956333706DDD7`
   - 包含：`src`、`package`、`tools`、`tests`、`artifacts`、README、需求、中文使用说明、项目规则和 `.gitignore`。
 - `XP闪电面片生成器_V1.4.0_R040_当前快照.mzp`
   - SHA256：`BC0649D7C237F843C7F5821B93B53405613982153B28F20C25A4BA03726DE9B2`
   - 与备份时 `dist/XP闪电面片生成器_V1.4.0.mzp` 字节完全一致。
 - `REQUIREMENTS_R040.md`
-  - SHA256：`5C37E4DDE5D1A532C4AF5F588909782D3A053ACA42BA9F80CCDF6A7506647B05`
+  - SHA256：`FBA24E134560370CECB0CFC2090B8B3B815994439EE61C0A18287FBBBE317436`
 - `插件使用说明_R040.md`
   - SHA256：`2142E9B2FB3FF5BC2F761300827C043B409AE5A6B250CE342A1B91546EAA7AF1`
 
@@ -24,6 +24,14 @@
 - MZP 只包含 `mzp.run` 与 `XP_LightningGenerator.ms` 两个预期文件。
 - R-021 的干净会话拾取根因仍保持修复：被依赖函数先于 `XP_LG_PickFilter` 定义，拾取按钮在过滤器定义之后引用。
 - 发布包未引用开发机绝对路径、外部 Python 包、第三方渲染器或 OpenCL。
+
+## GitHub 记录
+
+- 私有仓库：`https://github.com/Xppppp-001/XP-LightningPlane-Generator`
+- 发布分支：`agent/v140-r040-backup`
+- 首次快照提交：`80f0c3d`
+- 草稿 PR：`https://github.com/Xppppp-001/XP-LightningPlane-Generator/pull/1`
+- PR 尚未合并到 `main`。
 
 ## 仍待验证／已知范围
 
