@@ -1,6 +1,6 @@
 ﻿name "XP闪电面片生成器"
 version 3
-description "XP闪电面片生成器 V1.2.0｜3ds Max 2023 中文途经点、实时更新、轴向 Twist 与自动 UV 工具"
+description "XP闪电面片生成器 V1.4.0｜3ds Max 2023 中文恒宽面片、分轴噪波、途经点、Twist 与自动 UV 工具"
 run "XP_LightningGenerator.ms"
 drop "XP_LightningGenerator.ms"
 clear temp

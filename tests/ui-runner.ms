@@ -19,6 +19,7 @@ global XP_UI_TEST_LaunchValue
 global XP_UI_TEST_ResultValue
 global XP_LG_UpdateWholeTwistControlState
 global XP_LG_UpdateWaypointSmoothingControlState
+global XP_LG_UpdateNoiseAxisControlState
 global XP_LG_RequestLiveUpdate
 global XP_LG_FlushLiveUpdate
 global XP_LG_Rollout
@@ -161,7 +162,7 @@ fn XP_UI_TEST_RunOwnedInstance =
 
         global XP_LG_SuppressUI = false
         global XP_LG_Rollout = undefined
-        fileIn "E:/CodeXProject/3dsmaxLightning/dist/XP闪电面片生成器_V1.2.0.mzp" quiet:true
+        fileIn "E:/CodeXProject/3dsmaxLightning/dist/XP闪电面片生成器_V1.4.0.mzp" quiet:true
         testedRollout = XP_LG_Rollout
 
         XP_UI_TEST_Assert (testedRollout != undefined) "MZP 的 run 主脚本已定义 rollout"
@@ -169,7 +170,7 @@ fn XP_UI_TEST_RunOwnedInstance =
         XP_UI_TEST_Assert (testedRollout.isDisplayed == true) "主 rollout 已显示"
         XP_UI_TEST_Assert (testedRollout.visible == true) "主 rollout 可见"
         XP_UI_TEST_Assert (testedRollout.hwnd != 0) "主 rollout 具有有效 HWND"
-        XP_UI_TEST_Assert (testedRollout.title == "XP闪电面片生成器 V1.2.0") "主窗口中文标题正确"
+        XP_UI_TEST_Assert (testedRollout.title == "XP闪电面片生成器 V1.4.0") "主窗口中文标题正确"
 
         local requiredControls = #(
             #(#pbStart, "拾取起点", true),
@@ -186,17 +187,24 @@ fn XP_UI_TEST_RunOwnedInstance =
             #(#btnClearWaypoints, "清空全部", false),
             #(#chkWaypointSmoothing, "启用途经点平滑过渡", true),
             #(#spWaypointSmoothingStrength, "途经点过渡强度：", false),
-            #(#chkWaypointAutoAddFaces, "平滑时允许额外加面", false),
             #(#spFaces, "平面面数：", true),
+            #(#spExtraFaces, "额外加面：", true),
             #(#spWidth, "闪电宽度：", true),
             #(#chkTaperEnds, "面片两端平滑收尖", true),
             #(#spTwist, "路径噪波强度：", true),
             #(#spNoiseSize, "噪波大小：", true),
             #(#spTiling, "噪波 Tiling：", true),
+            #(#spNoisePhase, "噪波相位位移：", true),
+            #(#chkNoiseSeparateAxes, "分开控制噪波轴向强度", true),
+            #(#spNoiseUniformStrength, "统一轴向强度：", true),
+            #(#spNoiseXStrength, "X 轴强度：", false),
+            #(#spNoiseYStrength, "Y 轴强度：", false),
+            #(#spNoiseZStrength, "Z 轴强度：", false),
             #(#spSeed, "随机种子：", true),
             #(#chkWholeTwist, "启用整段轴向扭转（Twist）", true),
             #(#spWholeTwistSegments, "轴向扭转分段：", false),
             #(#spWholeTwistAmount, "轴向扭转角度：", false),
+            #(#spWholeOrientationAngle, "整段朝向旋转：", true),
             #(#chkLockStart, "锁定起点", true),
             #(#chkLockEnd, "锁定终点", true),
             #(#btnGenerate, "强制重新生成", true)
@@ -213,29 +221,36 @@ fn XP_UI_TEST_RunOwnedInstance =
         XP_UI_TEST_Assert (XP_UI_TEST_HasCaption testedRollout.controls "模型参数") "中文分组标题存在：模型参数"
         XP_UI_TEST_Assert (XP_UI_TEST_HasCaption testedRollout.controls "扭曲与噪波") "中文分组标题存在：扭曲与噪波"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lblPointHint).text == "位置取自所选对象的世界包围盒中心。") "中文位置说明正确"
-        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lblEndpointCount).text == "有效终点：0　基础预计四边面：0") "中文终点状态正确"
+        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lblEndpointCount).text == "有效终点：0　预计四边面：0") "中文终点状态正确"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lblWaypointHint).text == "先在场景层级中唯一选中一个 LightningPlane，再按列表顺序添加。") "中文途经点操作说明正确"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lbWaypoints).items.count == 0) "未选中面片时途经点列表为空"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #chkWaypointSmoothing).checked == false) "途经点平滑过渡默认关闭"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spWaypointSmoothingStrength).value == 50.0) "途经点过渡强度默认值为 50"
-        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #chkWaypointAutoAddFaces).checked == false) "途经点自动加面默认关闭"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lblWaypointActualFaces).text == "实际面数将在生成或更新成功后显示。") "实际面数初始提示正确"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lblStatus).text == "准备就绪；选中已有面片可编辑，强制重新生成才会新建。") "中文初始状态正确"
-        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lblVersion).text == "XP闪电面片生成器 V1.2.0｜3ds Max 2023") "中文版本信息正确"
+        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lblVersion).text == "XP闪电面片生成器 V1.4.0｜3ds Max 2023") "中文版本信息正确"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #btnUnityAxis) == undefined) "面板已移除 Unity／Y-Up 轴向修改按钮"
 
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spFaces).value == 24) "平面面数控件可读取"
+        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spExtraFaces).value == 0 and (XP_UI_TEST_FindControl testedRollout #spExtraFaces).range[1] == 0 and (XP_UI_TEST_FindControl testedRollout #spExtraFaces).range[2] == 1000) "额外加面滑条默认 0，范围 0 到 1000"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spWidth).value == 3.0) "闪电宽度控件可读取"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #chkTaperEnds).checked == false) "面片两端平滑收尖默认关闭"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spTwist).value == 15.0) "路径噪波强度控件可读取"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spNoiseSize).value == 1.0) "噪波大小控件可读取"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spTiling).value == 1.0) "噪波 Tiling 控件可读取"
+        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spNoisePhase).value == 0.0) "噪波相位位移默认值为零"
+        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #chkNoiseSeparateAxes).checked == false) "噪波轴向强度默认统一控制"
+        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spNoiseUniformStrength).value == 1.0) "统一轴向强度默认值为一"
+        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spNoiseXStrength).value == 1.0 and (XP_UI_TEST_FindControl testedRollout #spNoiseYStrength).value == 1.0 and (XP_UI_TEST_FindControl testedRollout #spNoiseZStrength).value == 1.0) "分轴强度默认值均为一"
+        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spNoiseXStrength).range[1] == 0.0 and (XP_UI_TEST_FindControl testedRollout #spNoiseYStrength).range[1] == 0.0 and (XP_UI_TEST_FindControl testedRollout #spNoiseZStrength).range[1] == 0.0) "三个分轴强度下限均为零"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spSeed).value == 1) "随机种子控件可读取"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #chkWholeTwist).checked == false) "轴向 Twist 默认关闭"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spWholeTwistSegments).value == 4) "轴向扭转分段默认值可读取"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spWholeTwistAmount).value == 90.0) "轴向扭转角度安全默认值可读取"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spWholeTwistSegments).range[1] >= 1) "轴向扭转分段下限不小于 1"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spWholeTwistAmount).range[1] < 0.0 and (XP_UI_TEST_FindControl testedRollout #spWholeTwistAmount).range[2] > 0.0) "轴向扭转角度支持正负两个方向"
+        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spWholeOrientationAngle).value == 0.0) "整段朝向旋转默认值为零"
+        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spWholeOrientationAngle).range[1] == -180.0 and (XP_UI_TEST_FindControl testedRollout #spWholeOrientationAngle).range[2] == 180.0) "整段朝向旋转支持正负 180 度"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #chkLockStart).checked == true) "锁定起点控件可读取"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #chkLockEnd).checked == true) "锁定终点控件可读取"
 
@@ -250,24 +265,38 @@ fn XP_UI_TEST_RunOwnedInstance =
         wholeAmountControl.value = -180.0
         XP_UI_TEST_Assert (wholeSegmentsControl.value == 7 and wholeAmountControl.value == -180.0) "轴向扭转分段和负角度可设置和读取"
         wholeTwistControl.checked = false
+
+        local separateAxesControl = XP_UI_TEST_FindControl testedRollout #chkNoiseSeparateAxes
+        local uniformStrengthControl = XP_UI_TEST_FindControl testedRollout #spNoiseUniformStrength
+        local xStrengthControl = XP_UI_TEST_FindControl testedRollout #spNoiseXStrength
+        local yStrengthControl = XP_UI_TEST_FindControl testedRollout #spNoiseYStrength
+        local zStrengthControl = XP_UI_TEST_FindControl testedRollout #spNoiseZStrength
+        separateAxesControl.checked = true
+        XP_LG_UpdateNoiseAxisControlState()
+        XP_UI_TEST_Assert (not uniformStrengthControl.enabled and xStrengthControl.enabled and yStrengthControl.enabled and zStrengthControl.enabled) "分开控制模式只启用 X/Y/Z 三个强度"
+        xStrengthControl.value = 1.0
+        yStrengthControl.value = 0.0
+        zStrengthControl.value = 0.0
+        XP_UI_TEST_Assert (xStrengthControl.value == 1.0 and yStrengthControl.value == 0.0 and zStrengthControl.value == 0.0) "分轴模式支持单轴噪波"
+        separateAxesControl.checked = false
+        XP_LG_UpdateNoiseAxisControlState()
+        XP_UI_TEST_Assert (uniformStrengthControl.enabled and not xStrengthControl.enabled and not yStrengthControl.enabled and not zStrengthControl.enabled) "统一控制模式只启用统一轴向强度"
         XP_LG_UpdateWholeTwistControlState()
         XP_LG_SuppressLiveUpdate = false
         XP_UI_TEST_Assert ((not wholeSegmentsControl.enabled) and (not wholeAmountControl.enabled)) "关闭轴向 Twist 后两个从属参数恢复禁用"
 
         local waypointSmoothingControl = XP_UI_TEST_FindControl testedRollout #chkWaypointSmoothing
         local waypointSmoothingStrengthControl = XP_UI_TEST_FindControl testedRollout #spWaypointSmoothingStrength
-        local waypointAutoAddFacesControl = XP_UI_TEST_FindControl testedRollout #chkWaypointAutoAddFaces
         global XP_LG_SuppressLiveUpdate = true
         waypointSmoothingControl.checked = true
         XP_LG_UpdateWaypointSmoothingControlState()
-        XP_UI_TEST_Assert (waypointSmoothingStrengthControl.enabled and waypointAutoAddFacesControl.enabled) "启用途经点平滑过渡后滑条与自动加面开关可用"
+        XP_UI_TEST_Assert waypointSmoothingStrengthControl.enabled "启用途经点平滑过渡后强度滑条可用"
         waypointSmoothingStrengthControl.value = 75.0
-        waypointAutoAddFacesControl.checked = true
-        XP_UI_TEST_Assert (waypointSmoothingStrengthControl.value == 75.0 and waypointAutoAddFacesControl.checked) "途经点过渡滑条与自动加面可设置和读取"
+        XP_UI_TEST_Assert (waypointSmoothingStrengthControl.value == 75.0) "途经点过渡滑条可设置和读取"
         waypointSmoothingControl.checked = false
         XP_LG_UpdateWaypointSmoothingControlState()
         XP_LG_SuppressLiveUpdate = false
-        XP_UI_TEST_Assert ((not waypointSmoothingStrengthControl.enabled) and (not waypointAutoAddFacesControl.enabled)) "关闭途经点平滑过渡后从属参数恢复禁用"
+        XP_UI_TEST_Assert (not waypointSmoothingStrengthControl.enabled) "关闭途经点平滑过渡后强度滑条恢复禁用"
 
         local liveUpdateTimer = XP_UI_TEST_FindControl testedRollout #tmLiveUpdate
         XP_UI_TEST_Assert (liveUpdateTimer != undefined) "实时更新防抖计时器存在"
