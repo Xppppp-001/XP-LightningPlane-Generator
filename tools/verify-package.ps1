@@ -39,6 +39,13 @@ $requiredTokens = @(
     'XP_LG_DeleteOutput',
     'XP_LG_RequestLiveUpdate',
     'XP_LG_FlushLiveUpdate',
+    'XP_LG_CloseUI',
+    'XP_LG_RolloutFloater',
+    'newRolloutFloater',
+    'scrollBar:#asNeeded',
+    'lockHeight:false',
+    'lockWidth:false',
+    'autoLayoutOnResize:true',
     'XP_LG_LiveUpdateBusy',
     'XP_LG_LiveUpdatePending',
     'XP_LG_ComputeAxialTwistAngle',
@@ -100,6 +107,7 @@ $requiredTokens = @(
     '启用途经点平滑过渡',
     '途经点过渡强度',
     '额外加面',
+    '横向分段',
     '预计四边面',
     '添加途经点',
     '上移',
@@ -130,6 +138,7 @@ $forbiddenTokens = @(
     '"FullWidthAdaptiveFaces"',
     '视觉优化未收敛',
     'checkbox chkWaypointAutoAddFaces'
+    'createDialog XP_LG_Rollout'
 )
 
 foreach ($token in $forbiddenTokens) {
@@ -165,8 +174,11 @@ if ([regex]::Matches($branchSource, 'mesh\s+name:').Count -ne 1) {
 if (-not $branchSource.Contains('local resolvedFFDSegmentCount = segmentCount + extraFaceCount')) {
     throw '单分支生成主链必须只使用平面面数加用户额外加面。'
 }
-if (-not $branchSource.Contains('local widthSegmentCount = 1')) {
-    throw '单分支生成主链必须保持标准单列 Plane。'
+if (-not $branchSource.Contains('widthSegmentCount:1') -or -not $branchSource.Contains('for widthIndex = 0 to widthSegmentCount do')) {
+    throw '单分支生成主链必须使用默认一列、用户可控的规则横向分段。'
+}
+if (-not $branchSource.Contains('local widthFraction = (widthIndex as float) / (widthSegmentCount as float)')) {
+    throw '横向网格顶点必须按截面左右端点做规则线性插值。'
 }
 if ($branchSource.Contains('diagonalModes')) {
     throw '单分支生成主链不得恢复逐面独立对角线模式。'

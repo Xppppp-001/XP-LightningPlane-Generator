@@ -17,6 +17,9 @@ global XP_LG_LiveUpdateBusy
 global XP_LG_LiveUpdateCurrentDepth
 global XP_LG_LiveUpdateMaxDepth
 global XP_LG_Rollout
+global XP_LG_RolloutFloater
+global XP_LG_ShowUI
+global XP_LG_CloseUI
 global XP_LG_OutputNodes
 global XP_LG_EndNodes
 global XP_TEST_LastPass = "<尚未通过断言>"
@@ -292,15 +295,15 @@ fn XP_TEST_AllBranchUVsForward editablePoly branchCount segmentCount =
 
         for stationIndex = 0 to segmentCount do
         (
-            local leftUVId = uvBase + stationIndex * 2 + 1
-            local rightUVId = leftUVId + 1
+            local leftUVId = uvBase + stationIndex * (widthSegments + 1) + 1
+            local rightUVId = leftUVId + widthSegments
             local leftUV = polyop.getMapVert editablePoly 1 leftUVId
             local rightUV = polyop.getMapVert editablePoly 1 rightUVId
             if (abs (leftUV.x - rightUV.x)) > 0.000001 or (abs leftUV.y) > 0.000001 or (abs (rightUV.y - 1.0)) > 0.000001 do return false
             if leftUV.x <= previousU do return false
             for widthIndex = 1 to (widthSegments - 1) do
             (
-                local internalUVId = uvBase + 2 * (segmentCount + 1) + stationIndex * (widthSegments - 1) + widthIndex
+                local internalUVId = leftUVId + widthIndex
                 local internalUV = polyop.getMapVert editablePoly 1 internalUVId
                 if (abs (internalUV.x - leftUV.x)) > 0.000001 or (abs (internalUV.y - ((widthIndex as float) / (widthSegments as float)))) > 0.000001 do return false
             )
@@ -308,7 +311,7 @@ fn XP_TEST_AllBranchUVsForward editablePoly branchCount segmentCount =
         )
 
         local firstU = (polyop.getMapVert editablePoly 1 (uvBase + 1)).x
-        local lastU = (polyop.getMapVert editablePoly 1 (uvBase + segmentCount * 2 + 1)).x
+        local lastU = (polyop.getMapVert editablePoly 1 (uvBase + segmentCount * (widthSegments + 1) + 1)).x
         if (abs firstU) > 0.000001 or (abs (lastU - 1.0)) > 0.000001 do return false
     )
     true
@@ -395,12 +398,7 @@ fn XP_TEST_GetWidthSegments outputNode =
 
 fn XP_TEST_GetGridVertexId stationIndex widthIndex longitudinalFaces widthSegments =
 (
-    if widthIndex == 0 then
-        stationIndex * 2 + 1
-    else if widthIndex == widthSegments then
-        stationIndex * 2 + 2
-    else
-        2 * (longitudinalFaces + 1) + stationIndex * (widthSegments - 1) + widthIndex
+    stationIndex * (widthSegments + 1) + widthIndex + 1
 )
 
 fn XP_TEST_GridCountsAndQualityValid outputNode minimumNormalDot =
@@ -412,20 +410,22 @@ fn XP_TEST_GridCountsAndQualityValid outputNode minimumNormalDot =
     local diagonalMode = 1
     try (diagonalMode = (getUserProp outputNode "XP_LightningStableDiagonalMode") as integer) catch (diagonalMode = 1)
     if longitudinalFaces < 1 or widthSegments < 1 do return false
-    if widthSegments > 1 and mod widthSegments 2 != 0 do return false
     if (polyop.getNumFaces editablePoly) != longitudinalFaces * widthSegments do return false
     if (polyop.getNumVerts editablePoly) != (longitudinalFaces + 1) * (widthSegments + 1) do return false
     if widthSegments > 1 do
     (
-        local centerWidthIndex = widthSegments / 2
         for stationIndex = 0 to longitudinalFaces do
         (
-            local leftPoint = polyop.getVert editablePoly (stationIndex * 2 + 1)
-            local rightPoint = polyop.getVert editablePoly (stationIndex * 2 + 2)
-            local centerVertexId = XP_TEST_GetGridVertexId stationIndex centerWidthIndex longitudinalFaces widthSegments
-            local centerPoint = polyop.getVert editablePoly centerVertexId
-            local centerUV = polyop.getMapVert editablePoly 1 centerVertexId
-            if not (XP_TEST_PointNear centerPoint ((leftPoint + rightPoint) * 0.5) 0.000001) or (abs (centerUV.y - 0.5)) > 0.000001 do return false
+            local leftPoint = polyop.getVert editablePoly (XP_TEST_GetGridVertexId stationIndex 0 longitudinalFaces widthSegments)
+            local rightPoint = polyop.getVert editablePoly (XP_TEST_GetGridVertexId stationIndex widthSegments longitudinalFaces widthSegments)
+            for widthIndex = 1 to (widthSegments - 1) do
+            (
+                local widthFraction = (widthIndex as float) / (widthSegments as float)
+                local gridVertexId = XP_TEST_GetGridVertexId stationIndex widthIndex longitudinalFaces widthSegments
+                local gridPoint = polyop.getVert editablePoly gridVertexId
+                local gridUV = polyop.getMapVert editablePoly 1 gridVertexId
+                if not (XP_TEST_PointNear gridPoint (leftPoint + (rightPoint - leftPoint) * widthFraction) 0.000001) or (abs (gridUV.y - widthFraction)) > 0.000001 do return false
+            )
         )
     )
     for segmentIndex = 0 to (longitudinalFaces - 1) do
@@ -456,8 +456,8 @@ fn XP_TEST_GridExcessAngleValid outputNode maximumExcessAngle =
     local widthScales = #()
     for stationIndex = 0 to longitudinalFaces do
     (
-        local leftPoint = polyop.getVert editablePoly (stationIndex * 2 + 1)
-        local rightPoint = polyop.getVert editablePoly (stationIndex * 2 + 2)
+        local leftPoint = polyop.getVert editablePoly (XP_TEST_GetGridVertexId stationIndex 0 longitudinalFaces widthSegments)
+        local rightPoint = polyop.getVert editablePoly (XP_TEST_GetGridVertexId stationIndex widthSegments longitudinalFaces widthSegments)
         local sideDelta = rightPoint - leftPoint
         if (length sideDelta) <= 0.0000001 do return false
         append points ((leftPoint + rightPoint) * 0.5)
@@ -1059,6 +1059,11 @@ manualTenFaceNode = XP_LG_ReplaceOutput startNode #(endNodeA) 10 4.0 12.0 1.0 0.
 XP_TEST_Assert (isValidNode manualTenFaceNode and (polyop.getNumFaces manualTenFaceNode.baseObject) == 10 and (polyop.getNumVerts manualTenFaceNode.baseObject) == 22 and (XP_TEST_GetLongitudinalFaces manualTenFaceNode 0) == 10 and (XP_TEST_GetWidthSegments manualTenFaceNode) == 1 and ((getUserProp manualTenFaceNode "XP_LightningExtraFaces") as integer) == 0) "用户截图的基础 10、额外 0 参数严格生成 10 面和 22 顶点，不再膨胀到 528 面"
 manualThirtyFaceNode = XP_LG_ReplaceOutput startNode #(endNodeA) 10 4.0 12.0 1.0 0.5 6 true true wholeTwistEnabled:true wholeTwistSegments:2 wholeTwistAmount:75.0 extraFaceCount:20
 XP_TEST_Assert (isValidNode manualThirtyFaceNode and (polyop.getNumFaces manualThirtyFaceNode.baseObject) == 30 and (polyop.getNumVerts manualThirtyFaceNode.baseObject) == 62 and (XP_TEST_GetLongitudinalFaces manualThirtyFaceNode 0) == 30 and (XP_TEST_GetWidthSegments manualThirtyFaceNode) == 1 and ((getUserProp manualThirtyFaceNode "XP_LightningExtraFaces") as integer) == 20) "基础 10、手动额外 20 严格生成 30 面，FFD 参数不再暗中改面数"
+manualWidthTwoNode = XP_LG_ReplaceOutput startNode #(endNodeA) 10 4.0 12.0 1.0 0.5 6 true true wholeTwistEnabled:true wholeTwistSegments:2 wholeTwistAmount:75.0 extraFaceCount:0 widthSegmentCount:2
+manualWidthTwoMiddleUV = if isValidNode manualWidthTwoNode then polyop.getMapVert manualWidthTwoNode.baseObject 1 (XP_TEST_GetGridVertexId 0 1 10 2) else [0.0,0.0,0.0]
+XP_TEST_Assert (isValidNode manualWidthTwoNode and (polyop.getNumFaces manualWidthTwoNode.baseObject) == 20 and (polyop.getNumVerts manualWidthTwoNode.baseObject) == 33 and (polyop.getNumMapVerts manualWidthTwoNode.baseObject 1) == 33 and (XP_TEST_GetLongitudinalFaces manualWidthTwoNode 0) == 10 and (XP_TEST_GetWidthSegments manualWidthTwoNode) == 2 and (abs (manualWidthTwoMiddleUV.y - 0.5)) <= 0.000001 and XP_TEST_GridCountsAndQualityValid manualWidthTwoNode (-1.0) and XP_TEST_AllFacesAndMapFacesValid manualWidthTwoNode.baseObject and XP_TEST_AllBranchUVsForward manualWidthTwoNode.baseObject 1 10 and XP_TEST_AllMapUVValues01 manualWidthTwoNode.baseObject) "纵向 10、横向 2 严格生成 20 个四边面和 33 个几何／贴图顶点，V=0.5 为真实纵向边"
+manualWidthEightNode = XP_LG_ReplaceOutput startNode #(endNodeA) 10 4.0 12.0 1.0 0.5 6 true true wholeTwistEnabled:true wholeTwistSegments:2 wholeTwistAmount:75.0 extraFaceCount:0 widthSegmentCount:8
+XP_TEST_Assert (isValidNode manualWidthEightNode and (polyop.getNumFaces manualWidthEightNode.baseObject) == 80 and (polyop.getNumVerts manualWidthEightNode.baseObject) == 99 and (polyop.getNumMapVerts manualWidthEightNode.baseObject 1) == 99 and (XP_TEST_GetWidthSegments manualWidthEightNode) == 8 and XP_TEST_GridCountsAndQualityValid manualWidthEightNode (-1.0) and XP_TEST_AllFacesAndMapFacesValid manualWidthEightNode.baseObject and XP_TEST_AllBranchUVsForward manualWidthEightNode.baseObject 1 10 and XP_TEST_AllMapUVValues01 manualWidthEightNode.baseObject) "纵向 10、横向 8 严格生成 80 个四边面和 99 个几何／贴图顶点"
 segmentedTwistProtectedNode = adaptiveScreenshotNode
 segmentedTwistProtectedVerts = XP_TEST_CaptureWorldVerts segmentedTwistProtectedNode
 segmentedTwistScreenshotNode = XP_LG_ReplaceOutput startNode #(endNodeA, endNodeB) 50 5.0 15.0 1.0 1.0 1 true true wholeTwistEnabled:true wholeTwistSegments:10 wholeTwistAmount:60.0
@@ -1075,9 +1080,8 @@ XP_TEST_Assert (isValidNode oldOutput) "非法输入不会删除旧结果"
 XP_TEST_Assert ((XP_TEST_CountManagedOutputs()) == 1 and (XP_TEST_CountTemporaryOutputs()) == 0) "全部非法输入后仍只有旧模型且无临时半成品"
 
 -- R-007：显式 request/flush 测试，不依赖程序设置控件值时是否触发 changed 事件。
-try (destroyDialog XP_LG_Rollout) catch ()
-createDialog XP_LG_Rollout pos:[20,20]
-XP_TEST_Assert (XP_LG_Rollout.open == true) "实时更新测试所需 rollout 已创建"
+XP_LG_ShowUI()
+XP_TEST_Assert (XP_LG_Rollout.open == true and XP_LG_RolloutFloater != undefined) "实时更新测试所需可缩放 rollout 已创建"
 XP_TEST_Assert (XP_LG_RequestLiveUpdate != undefined and XP_LG_FlushLiveUpdate != undefined) "实时更新请求和显式刷新入口已定义"
 
 XP_LG_DeleteOutput()
@@ -1416,11 +1420,11 @@ select selectionTarget
 XP_LG_LoadSelectedOutputIntoUI()
 XP_TEST_Assert ((abs (XP_LG_Rollout.spWidth.value - 4.0)) < 0.000001 and XP_LG_EndNodes.count == 1 and XP_LG_EndNodes[1] == endNodeA) "选中面片后载入该对象自己的参数与终点"
 selectionEditResolvedFaces = XP_LG_ResolveFFDSegmentCount 20 18.0 1.2 2.0 [1.25,0.0,0.5] true 3 30.0
-selectionEditResult = XP_LG_ReplaceSelectedOutput selectionTarget startNode endNodeA 20 9.0 18.0 1.2 2.0 909 true true wholeTwistEnabled:true wholeTwistSegments:3 wholeTwistAmount:30.0 wholeOrientationAngle:25.0 taperEnds:true noisePhase:0.625 noiseSeparateAxes:true noiseUniformStrength:3.0 noiseXStrength:1.25 noiseYStrength:0.0 noiseZStrength:0.5
+selectionEditResult = XP_LG_ReplaceSelectedOutput selectionTarget startNode endNodeA 20 9.0 18.0 1.2 2.0 909 true true wholeTwistEnabled:true wholeTwistSegments:3 wholeTwistAmount:30.0 wholeOrientationAngle:25.0 taperEnds:true widthSegmentCount:3 noisePhase:0.625 noiseSeparateAxes:true noiseUniformStrength:3.0 noiseXStrength:1.25 noiseYStrength:0.0 noiseZStrength:0.5
 XP_TEST_Assert (selectionEditResult == selectionTarget and (getHandleByAnim selectionTarget) == selectionTargetHandle and selectionTarget.name == selectionTargetName and selectionTarget.parent == selectionParent and selectionTarget.transform == selectionTargetTM and (XP_TEST_GetLongitudinalFaces selectionTarget 0) == selectionEditResolvedFaces and (polyop.getNumFaces selectionTarget.baseObject) == selectionEditResolvedFaces * (XP_TEST_GetWidthSegments selectionTarget) and (XP_TEST_CountManagedOutputs()) == selectionCountBefore) "修改参数只原位更新所选面片并保持节点句柄、名称、层级、变换和对象数量"
 select selectionTarget
 XP_LG_LoadSelectedOutputIntoUI()
-XP_TEST_Assert ((abs (XP_LG_Rollout.spWholeOrientationAngle.value - 25.0)) < 0.000001 and (getUserProp selectionTarget "XP_LightningWholeOrientationAngle") == 25.0) "所选面片独立保存并载入整段朝向旋转角度"
+XP_TEST_Assert ((abs (XP_LG_Rollout.spWholeOrientationAngle.value - 25.0)) < 0.000001 and (getUserProp selectionTarget "XP_LightningWholeOrientationAngle") == 25.0 and XP_LG_Rollout.spWidthSegments.value == 3 and (XP_TEST_GetWidthSegments selectionTarget) == 3) "所选面片独立保存并载入整段朝向旋转角度与横向分段"
 XP_TEST_Assert ((abs (XP_LG_Rollout.spNoisePhase.value - 0.625)) < 0.000001 and XP_LG_Rollout.chkNoiseSeparateAxes.checked and (abs (XP_LG_Rollout.spNoiseXStrength.value - 1.25)) < 0.000001 and XP_LG_Rollout.spNoiseYStrength.value == 0.0 and (abs (XP_LG_Rollout.spNoiseZStrength.value - 0.5)) < 0.000001) "所选面片独立保存并载入噪波相位和分轴强度，零轴值保持有效"
 XP_TEST_Assert (not XP_LG_Rollout.spNoiseUniformStrength.enabled and XP_LG_Rollout.spNoiseXStrength.enabled and XP_LG_Rollout.spNoiseYStrength.enabled and XP_LG_Rollout.spNoiseZStrength.enabled) "载入分轴模式后界面启用状态正确"
 XP_TEST_Assert (selectionOther.name == selectionOtherNameBefore and XP_TEST_VertArraysNear selectionOtherWorldBefore (XP_TEST_CaptureWorldVerts selectionOther) 0.000001 and (polyop.getNumFaces selectionOther.baseObject) == selectionOtherFacesBefore) "同组未选面片的名称、参数和几何完全不变"
@@ -1719,7 +1723,7 @@ XP_LG_DeleteOutput()
 XP_TEST_Assert ((XP_TEST_CountActiveOutputs()) == 0 and (XP_TEST_CountManagedOutputs()) == liveHistoricalNodes.count) "清除当前输出只删除活动组并保留全部强制生成历史组"
 for branchIndex = 1 to liveHistoricalNodes.count do XP_TEST_Assert (isValidNode liveHistoricalNodes[branchIndex]) ("清除当前输出后历史分支仍有效：" + branchIndex as string)
 XP_LG_CancelLiveUpdate()
-try (destroyDialog XP_LG_Rollout) catch ()
+XP_LG_CloseUI()
 
 packageRunExtractDir = ""
 XP_LG_Rollout = undefined

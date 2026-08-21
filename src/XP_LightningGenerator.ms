@@ -20,6 +20,7 @@ global XP_LG_EndNodes
 global XP_LG_OutputNode
 global XP_LG_OutputNodes
 global XP_LG_Rollout
+global XP_LG_RolloutFloater
 global XP_LG_SuppressUI
 global XP_LG_LastError
 global XP_LG_LiveUpdateBusy
@@ -1592,7 +1593,7 @@ fn XP_LG_ResolveFFDSegmentCount baseSegmentCount twistStrength noiseSize tiling 
     resolvedCount as integer
 )
 
-fn XP_LG_ValidateInputs startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 waypointNodes:#() waypointSmoothingStrength:50.0 extraFaceCount:0 noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
+fn XP_LG_ValidateInputs startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 waypointNodes:#() waypointSmoothingStrength:50.0 extraFaceCount:0 widthSegmentCount:1 noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
 (
     XP_LG_LastError = ""
 
@@ -1600,6 +1601,7 @@ fn XP_LG_ValidateInputs startNode endNodes segmentCount ribbonWidth twistStrengt
     if endNodes == undefined or endNodes.count == 0 do return XP_LG_SetError "请至少添加一个有效的终点对象。"
     if segmentCount < 1 do return XP_LG_SetError "平面面数必须大于或等于 1。"
     if extraFaceCount < 0 or extraFaceCount > 1000 or (floor extraFaceCount) != extraFaceCount do return XP_LG_SetError "额外加面必须为 0 到 1000 的整数。"
+    if widthSegmentCount < 1 or widthSegmentCount > 8 or (floor widthSegmentCount) != widthSegmentCount do return XP_LG_SetError "横向分段必须为 1 到 8 的整数。"
     if ribbonWidth <= 0.000001 do return XP_LG_SetError "闪电宽度必须大于 0。"
     if twistStrength < 0.0 do return XP_LG_SetError "路径噪波强度不能小于 0。"
     if noiseSize <= 0.000001 do return XP_LG_SetError "噪波大小必须大于 0。"
@@ -1646,7 +1648,7 @@ fn XP_LG_ValidateInputs startNode endNodes segmentCount ribbonWidth twistStrengt
     true
 )
 
-fn XP_LG_CreateLightningBranchNode startNode endNode branchIndex branchCount segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 wholeOrientationAngle:0.0 taperEnds:false waypointNodes:#() waypointSmoothingEnabled:false waypointSmoothingStrength:50.0 waypointAutoAddFaces:false extraFaceCount:0 noisePhase:0.0 noiseSeparateAxes:false noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
+fn XP_LG_CreateLightningBranchNode startNode endNode branchIndex branchCount segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 wholeOrientationAngle:0.0 taperEnds:false waypointNodes:#() waypointSmoothingEnabled:false waypointSmoothingStrength:50.0 waypointAutoAddFaces:false extraFaceCount:0 widthSegmentCount:1 noisePhase:0.0 noiseSeparateAxes:false noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
 (
     local startWorld = XP_LG_GetWorldCenter startNode
     local endWorld = XP_LG_GetWorldCenter endNode
@@ -1681,9 +1683,8 @@ fn XP_LG_CreateLightningBranchNode startNode endNode branchIndex branchCount seg
     if hasAxialTwist or hasWholeOrientation do sides = XP_LG_BuildAxiallyTwistedSides points baseSides wholeTwistSegments effectiveWholeTwistAmount lockStart lockEnd sampleParameters:sampleParameters wholeOrientationAngle:wholeOrientationAngle
     if sides == undefined or sides.count != points.count do return XP_LG_SetError ("终点“" + endNode.name + "”的 Twist／朝向截面无法建立；原模型已保留。")
 
-    -- 宽度方向恒为一列，保持标准 Plane 拓扑。只允许整条分支选择一个统一显示对角线，
-    -- 对角线选择不得增加顶点、面数或触发重建。
-    local widthSegmentCount = 1
+    -- R-041：宽度列完全由用户设置；其他参数不得暗中修改。
+    -- 只允许整条分支选择一个统一显示对角线，且不得触发重建。
     local qualityMode1 = XP_LG_GetGridDiagonalMinimumQuality points sides halfWidth widthScales widthSegmentCount 1
     local qualityMode2 = XP_LG_GetGridDiagonalMinimumQuality points sides halfWidth widthScales widthSegmentCount 2
     local stableDiagonalMode = if qualityMode2 > qualityMode1 then 2 else 1
@@ -1711,26 +1712,31 @@ fn XP_LG_CreateLightningBranchNode startNode endNode branchIndex branchCount seg
             local rowVertexIds = #()
             local rowUVIds = #()
 
-            -- 先创建每个截面的左右外轮廓，继续保持历史版本的外轮廓顶点索引顺序。
+            -- 在同一截面的左右端点之间建立用户指定的规则横向分段。
             for pointIndex = 1 to points.count do
             (
                 local stationHalfWidth = halfWidth * widthScales[pointIndex]
                 local leftWorld = points[pointIndex] - sides[pointIndex] * stationHalfWidth
                 local rightWorld = points[pointIndex] + sides[pointIndex] * stationHalfWidth
-                local leftId = polyop.createVert editablePoly (leftWorld - startWorld)
-                local rightId = polyop.createVert editablePoly (rightWorld - startWorld)
-
-                if leftId == undefined or rightId == undefined do
+                local stationVertexIds = #()
+                local stationUVIds = #()
+                for widthIndex = 0 to widthSegmentCount do
                 (
-                    XP_LG_LastError = "创建闪电顶点失败；原模型未被修改。"
-                    delete polyNode
-                    return undefined
+                    local widthFraction = (widthIndex as float) / (widthSegmentCount as float)
+                    local stationWorld = leftWorld + (rightWorld - leftWorld) * widthFraction
+                    local vertexId = polyop.createVert editablePoly (stationWorld - startWorld)
+                    if vertexId == undefined do
+                    (
+                        XP_LG_LastError = "创建闪电横向网格顶点失败；原模型未被修改。"
+                        delete polyNode
+                        return undefined
+                    )
+                    append stationVertexIds vertexId
+                    append uvCoordinates [uValues[pointIndex], widthFraction, 0.0]
+                    append stationUVIds uvCoordinates.count
                 )
-
-                append rowVertexIds #(leftId, rightId)
-                append uvCoordinates [uValues[pointIndex], 0.0, 0.0]
-                append uvCoordinates [uValues[pointIndex], 1.0, 0.0]
-                append rowUVIds #((uvCoordinates.count - 1), uvCoordinates.count)
+                append rowVertexIds stationVertexIds
+                append rowUVIds stationUVIds
             )
 
             for segmentIndex = 1 to actualSegmentCount do
@@ -1864,15 +1870,15 @@ fn XP_LG_CreateLightningBranchNode startNode endNode branchIndex branchCount seg
     polyNode
 )
 
-fn XP_LG_CreateLightningNodes startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 wholeOrientationAngle:0.0 taperEnds:false waypointNodes:#() waypointSmoothingEnabled:false waypointSmoothingStrength:50.0 waypointAutoAddFaces:false extraFaceCount:0 noisePhase:0.0 noiseSeparateAxes:false noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
+fn XP_LG_CreateLightningNodes startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 wholeOrientationAngle:0.0 taperEnds:false waypointNodes:#() waypointSmoothingEnabled:false waypointSmoothingStrength:50.0 waypointAutoAddFaces:false extraFaceCount:0 widthSegmentCount:1 noisePhase:0.0 noiseSeparateAxes:false noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
 (
     XP_LG_LastError = ""
-    if (XP_LG_ValidateInputs startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling wholeTwistEnabled:wholeTwistEnabled wholeTwistSegments:wholeTwistSegments wholeTwistAmount:wholeTwistAmount waypointNodes:waypointNodes waypointSmoothingStrength:waypointSmoothingStrength extraFaceCount:extraFaceCount noiseUniformStrength:noiseUniformStrength noiseXStrength:noiseXStrength noiseYStrength:noiseYStrength noiseZStrength:noiseZStrength) != true do return undefined
+    if (XP_LG_ValidateInputs startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling wholeTwistEnabled:wholeTwistEnabled wholeTwistSegments:wholeTwistSegments wholeTwistAmount:wholeTwistAmount waypointNodes:waypointNodes waypointSmoothingStrength:waypointSmoothingStrength extraFaceCount:extraFaceCount widthSegmentCount:widthSegmentCount noiseUniformStrength:noiseUniformStrength noiseXStrength:noiseXStrength noiseYStrength:noiseYStrength noiseZStrength:noiseZStrength) != true do return undefined
 
     local newNodes = #()
     for branchIndex = 1 to endNodes.count do
     (
-        local newNode = XP_LG_CreateLightningBranchNode startNode endNodes[branchIndex] branchIndex endNodes.count segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:wholeTwistEnabled wholeTwistSegments:wholeTwistSegments wholeTwistAmount:wholeTwistAmount wholeOrientationAngle:wholeOrientationAngle taperEnds:taperEnds waypointNodes:waypointNodes waypointSmoothingEnabled:waypointSmoothingEnabled waypointSmoothingStrength:waypointSmoothingStrength waypointAutoAddFaces:false extraFaceCount:extraFaceCount noisePhase:noisePhase noiseSeparateAxes:noiseSeparateAxes noiseUniformStrength:noiseUniformStrength noiseXStrength:noiseXStrength noiseYStrength:noiseYStrength noiseZStrength:noiseZStrength
+        local newNode = XP_LG_CreateLightningBranchNode startNode endNodes[branchIndex] branchIndex endNodes.count segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:wholeTwistEnabled wholeTwistSegments:wholeTwistSegments wholeTwistAmount:wholeTwistAmount wholeOrientationAngle:wholeOrientationAngle taperEnds:taperEnds waypointNodes:waypointNodes waypointSmoothingEnabled:waypointSmoothingEnabled waypointSmoothingStrength:waypointSmoothingStrength waypointAutoAddFaces:false extraFaceCount:extraFaceCount widthSegmentCount:widthSegmentCount noisePhase:noisePhase noiseSeparateAxes:noiseSeparateAxes noiseUniformStrength:noiseUniformStrength noiseXStrength:noiseXStrength noiseYStrength:noiseYStrength noiseZStrength:noiseZStrength
         if not isValidNode newNode do
         (
             for createdNode in newNodes do if isValidNode createdNode do delete createdNode
@@ -1883,9 +1889,9 @@ fn XP_LG_CreateLightningNodes startNode endNodes segmentCount ribbonWidth twistS
     newNodes
 )
 
-fn XP_LG_CreateLightningNode startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 wholeOrientationAngle:0.0 taperEnds:false waypointNodes:#() waypointSmoothingEnabled:false waypointSmoothingStrength:50.0 waypointAutoAddFaces:false extraFaceCount:0 noisePhase:0.0 noiseSeparateAxes:false noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
+fn XP_LG_CreateLightningNode startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 wholeOrientationAngle:0.0 taperEnds:false waypointNodes:#() waypointSmoothingEnabled:false waypointSmoothingStrength:50.0 waypointAutoAddFaces:false extraFaceCount:0 widthSegmentCount:1 noisePhase:0.0 noiseSeparateAxes:false noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
 (
-    local newNodes = XP_LG_CreateLightningNodes startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:wholeTwistEnabled wholeTwistSegments:wholeTwistSegments wholeTwistAmount:wholeTwistAmount wholeOrientationAngle:wholeOrientationAngle taperEnds:taperEnds waypointNodes:waypointNodes waypointSmoothingEnabled:waypointSmoothingEnabled waypointSmoothingStrength:waypointSmoothingStrength waypointAutoAddFaces:false extraFaceCount:extraFaceCount noisePhase:noisePhase noiseSeparateAxes:noiseSeparateAxes noiseUniformStrength:noiseUniformStrength noiseXStrength:noiseXStrength noiseYStrength:noiseYStrength noiseZStrength:noiseZStrength
+    local newNodes = XP_LG_CreateLightningNodes startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:wholeTwistEnabled wholeTwistSegments:wholeTwistSegments wholeTwistAmount:wholeTwistAmount wholeOrientationAngle:wholeOrientationAngle taperEnds:taperEnds waypointNodes:waypointNodes waypointSmoothingEnabled:waypointSmoothingEnabled waypointSmoothingStrength:waypointSmoothingStrength waypointAutoAddFaces:false extraFaceCount:extraFaceCount widthSegmentCount:widthSegmentCount noisePhase:noisePhase noiseSeparateAxes:noiseSeparateAxes noiseUniformStrength:noiseUniformStrength noiseXStrength:noiseXStrength noiseYStrength:noiseYStrength noiseZStrength:noiseZStrength
     if newNodes == undefined or newNodes.count == 0 do return undefined
     for newNode in newNodes do if isValidNode newNode do
     (
@@ -1930,10 +1936,10 @@ fn XP_LG_CaptureNodeWorldVertices sceneNode =
     for vertexIndex = 1 to (polyop.getNumVerts editablePoly) collect ((polyop.getVert editablePoly vertexIndex) * objectTM)
 )
 
-fn XP_LG_ReplaceSelectedOutput selectedNode startNode endNode segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 wholeOrientationAngle:0.0 taperEnds:false waypointNodes:#() waypointSmoothingEnabled:false waypointSmoothingStrength:50.0 waypointAutoAddFaces:false extraFaceCount:0 noisePhase:0.0 noiseSeparateAxes:false noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
+fn XP_LG_ReplaceSelectedOutput selectedNode startNode endNode segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 wholeOrientationAngle:0.0 taperEnds:false waypointNodes:#() waypointSmoothingEnabled:false waypointSmoothingStrength:50.0 waypointAutoAddFaces:false extraFaceCount:0 widthSegmentCount:1 noisePhase:0.0 noiseSeparateAxes:false noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
 (
     if not isValidNode selectedNode or not (XP_LG_IsManagedOutput selectedNode) do return undefined
-    local temporaryNodes = XP_LG_CreateLightningNodes startNode #(endNode) segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:wholeTwistEnabled wholeTwistSegments:wholeTwistSegments wholeTwistAmount:wholeTwistAmount wholeOrientationAngle:wholeOrientationAngle taperEnds:taperEnds waypointNodes:waypointNodes waypointSmoothingEnabled:waypointSmoothingEnabled waypointSmoothingStrength:waypointSmoothingStrength waypointAutoAddFaces:false extraFaceCount:extraFaceCount noisePhase:noisePhase noiseSeparateAxes:noiseSeparateAxes noiseUniformStrength:noiseUniformStrength noiseXStrength:noiseXStrength noiseYStrength:noiseYStrength noiseZStrength:noiseZStrength
+    local temporaryNodes = XP_LG_CreateLightningNodes startNode #(endNode) segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:wholeTwistEnabled wholeTwistSegments:wholeTwistSegments wholeTwistAmount:wholeTwistAmount wholeOrientationAngle:wholeOrientationAngle taperEnds:taperEnds waypointNodes:waypointNodes waypointSmoothingEnabled:waypointSmoothingEnabled waypointSmoothingStrength:waypointSmoothingStrength waypointAutoAddFaces:false extraFaceCount:extraFaceCount widthSegmentCount:widthSegmentCount noisePhase:noisePhase noiseSeparateAxes:noiseSeparateAxes noiseUniformStrength:noiseUniformStrength noiseXStrength:noiseXStrength noiseYStrength:noiseYStrength noiseZStrength:noiseZStrength
     if temporaryNodes == undefined or temporaryNodes.count != 1 do return undefined
 
     local temporaryNode = temporaryNodes[1]
@@ -1982,10 +1988,10 @@ fn XP_LG_ReplaceSelectedOutput selectedNode startNode endNode segmentCount ribbo
     )
 )
 
-fn XP_LG_ReplaceOutput startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 wholeOrientationAngle:0.0 taperEnds:false extraFaceCount:0 noisePhase:0.0 noiseSeparateAxes:false noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
+fn XP_LG_ReplaceOutput startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 wholeOrientationAngle:0.0 taperEnds:false extraFaceCount:0 widthSegmentCount:1 noisePhase:0.0 noiseSeparateAxes:false noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
 (
     local oldNodes = XP_LG_ResolveOutputs startNode
-    local newNodes = XP_LG_CreateLightningNodes startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:wholeTwistEnabled wholeTwistSegments:wholeTwistSegments wholeTwistAmount:wholeTwistAmount wholeOrientationAngle:wholeOrientationAngle taperEnds:taperEnds extraFaceCount:extraFaceCount noisePhase:noisePhase noiseSeparateAxes:noiseSeparateAxes noiseUniformStrength:noiseUniformStrength noiseXStrength:noiseXStrength noiseYStrength:noiseYStrength noiseZStrength:noiseZStrength
+    local newNodes = XP_LG_CreateLightningNodes startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:wholeTwistEnabled wholeTwistSegments:wholeTwistSegments wholeTwistAmount:wholeTwistAmount wholeOrientationAngle:wholeOrientationAngle taperEnds:taperEnds extraFaceCount:extraFaceCount widthSegmentCount:widthSegmentCount noisePhase:noisePhase noiseSeparateAxes:noiseSeparateAxes noiseUniformStrength:noiseUniformStrength noiseXStrength:noiseXStrength noiseYStrength:noiseYStrength noiseZStrength:noiseZStrength
     local renamedOldNodes = #()
 
     if newNodes == undefined or newNodes.count != endNodes.count do return undefined
@@ -2041,10 +2047,10 @@ fn XP_LG_ReplaceOutput startNode endNodes segmentCount ribbonWidth twistStrength
     newNodes[1]
 )
 
-fn XP_LG_CreateNewOutputSet startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 wholeOrientationAngle:0.0 taperEnds:false waypointSmoothingEnabled:false waypointSmoothingStrength:50.0 waypointAutoAddFaces:false extraFaceCount:0 noisePhase:0.0 noiseSeparateAxes:false noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
+fn XP_LG_CreateNewOutputSet startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:false wholeTwistSegments:4 wholeTwistAmount:0.0 wholeOrientationAngle:0.0 taperEnds:false waypointSmoothingEnabled:false waypointSmoothingStrength:50.0 waypointAutoAddFaces:false extraFaceCount:0 widthSegmentCount:1 noisePhase:0.0 noiseSeparateAxes:false noiseUniformStrength:1.0 noiseXStrength:1.0 noiseYStrength:1.0 noiseZStrength:1.0 =
 (
     local oldActiveNodes = XP_LG_ResolveOutputs startNode
-    local newNodes = XP_LG_CreateLightningNodes startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:wholeTwistEnabled wholeTwistSegments:wholeTwistSegments wholeTwistAmount:wholeTwistAmount wholeOrientationAngle:wholeOrientationAngle taperEnds:taperEnds waypointSmoothingEnabled:waypointSmoothingEnabled waypointSmoothingStrength:waypointSmoothingStrength waypointAutoAddFaces:false extraFaceCount:extraFaceCount noisePhase:noisePhase noiseSeparateAxes:noiseSeparateAxes noiseUniformStrength:noiseUniformStrength noiseXStrength:noiseXStrength noiseYStrength:noiseYStrength noiseZStrength:noiseZStrength
+    local newNodes = XP_LG_CreateLightningNodes startNode endNodes segmentCount ribbonWidth twistStrength noiseSize tiling seedValue lockStart lockEnd wholeTwistEnabled:wholeTwistEnabled wholeTwistSegments:wholeTwistSegments wholeTwistAmount:wholeTwistAmount wholeOrientationAngle:wholeOrientationAngle taperEnds:taperEnds waypointSmoothingEnabled:waypointSmoothingEnabled waypointSmoothingStrength:waypointSmoothingStrength waypointAutoAddFaces:false extraFaceCount:extraFaceCount widthSegmentCount:widthSegmentCount noisePhase:noisePhase noiseSeparateAxes:noiseSeparateAxes noiseUniformStrength:noiseUniformStrength noiseXStrength:noiseXStrength noiseYStrength:noiseYStrength noiseZStrength:noiseZStrength
     if newNodes == undefined or newNodes.count != endNodes.count do return undefined
 
     try
@@ -2204,6 +2210,7 @@ fn XP_LG_FlushLiveUpdate =
     local endSnapshot = #()
     local faceCountSnapshot = 1
     local extraFaceCountSnapshot = 0
+    local widthSegmentCountSnapshot = 1
     local widthSnapshot = 1.0
     local twistSnapshot = 0.0
     local noiseSizeSnapshot = 1.0
@@ -2250,6 +2257,7 @@ fn XP_LG_FlushLiveUpdate =
         )
         faceCountSnapshot = XP_LG_Rollout.spFaces.value as integer
         extraFaceCountSnapshot = XP_LG_Rollout.spExtraFaces.value as integer
+        widthSegmentCountSnapshot = XP_LG_Rollout.spWidthSegments.value as integer
         widthSnapshot = XP_LG_Rollout.spWidth.value
         twistSnapshot = XP_LG_Rollout.spTwist.value
         noiseSizeSnapshot = XP_LG_Rollout.spNoiseSize.value
@@ -2307,14 +2315,14 @@ fn XP_LG_FlushLiveUpdate =
         (
             undo "新建一组写实闪电" on
             (
-                generatedNode = XP_LG_CreateNewOutputSet startSnapshot endSnapshot faceCountSnapshot widthSnapshot twistSnapshot noiseSizeSnapshot tilingSnapshot seedSnapshot lockStartSnapshot lockEndSnapshot wholeTwistEnabled:wholeTwistEnabledSnapshot wholeTwistSegments:wholeTwistSegmentsSnapshot wholeTwistAmount:wholeTwistAmountSnapshot wholeOrientationAngle:wholeOrientationAngleSnapshot taperEnds:taperEndsSnapshot waypointSmoothingEnabled:waypointSmoothingEnabledSnapshot waypointSmoothingStrength:waypointSmoothingStrengthSnapshot waypointAutoAddFaces:false extraFaceCount:extraFaceCountSnapshot noisePhase:noisePhaseSnapshot noiseSeparateAxes:noiseSeparateAxesSnapshot noiseUniformStrength:noiseUniformStrengthSnapshot noiseXStrength:noiseXStrengthSnapshot noiseYStrength:noiseYStrengthSnapshot noiseZStrength:noiseZStrengthSnapshot
+                generatedNode = XP_LG_CreateNewOutputSet startSnapshot endSnapshot faceCountSnapshot widthSnapshot twistSnapshot noiseSizeSnapshot tilingSnapshot seedSnapshot lockStartSnapshot lockEndSnapshot wholeTwistEnabled:wholeTwistEnabledSnapshot wholeTwistSegments:wholeTwistSegmentsSnapshot wholeTwistAmount:wholeTwistAmountSnapshot wholeOrientationAngle:wholeOrientationAngleSnapshot taperEnds:taperEndsSnapshot waypointSmoothingEnabled:waypointSmoothingEnabledSnapshot waypointSmoothingStrength:waypointSmoothingStrengthSnapshot waypointAutoAddFaces:false extraFaceCount:extraFaceCountSnapshot widthSegmentCount:widthSegmentCountSnapshot noisePhase:noisePhaseSnapshot noiseSeparateAxes:noiseSeparateAxesSnapshot noiseUniformStrength:noiseUniformStrengthSnapshot noiseXStrength:noiseXStrengthSnapshot noiseYStrength:noiseYStrengthSnapshot noiseZStrength:noiseZStrengthSnapshot
             )
         )
         else
         (
             undo "实时更新写实闪电" on
             (
-                generatedNode = XP_LG_ReplaceSelectedOutput targetNodeSnapshot startSnapshot endSnapshot[1] faceCountSnapshot widthSnapshot twistSnapshot noiseSizeSnapshot tilingSnapshot seedSnapshot lockStartSnapshot lockEndSnapshot wholeTwistEnabled:wholeTwistEnabledSnapshot wholeTwistSegments:wholeTwistSegmentsSnapshot wholeTwistAmount:wholeTwistAmountSnapshot wholeOrientationAngle:wholeOrientationAngleSnapshot taperEnds:taperEndsSnapshot waypointNodes:waypointSnapshot waypointSmoothingEnabled:waypointSmoothingEnabledSnapshot waypointSmoothingStrength:waypointSmoothingStrengthSnapshot waypointAutoAddFaces:false extraFaceCount:extraFaceCountSnapshot noisePhase:noisePhaseSnapshot noiseSeparateAxes:noiseSeparateAxesSnapshot noiseUniformStrength:noiseUniformStrengthSnapshot noiseXStrength:noiseXStrengthSnapshot noiseYStrength:noiseYStrengthSnapshot noiseZStrength:noiseZStrengthSnapshot
+                generatedNode = XP_LG_ReplaceSelectedOutput targetNodeSnapshot startSnapshot endSnapshot[1] faceCountSnapshot widthSnapshot twistSnapshot noiseSizeSnapshot tilingSnapshot seedSnapshot lockStartSnapshot lockEndSnapshot wholeTwistEnabled:wholeTwistEnabledSnapshot wholeTwistSegments:wholeTwistSegmentsSnapshot wholeTwistAmount:wholeTwistAmountSnapshot wholeOrientationAngle:wholeOrientationAngleSnapshot taperEnds:taperEndsSnapshot waypointNodes:waypointSnapshot waypointSmoothingEnabled:waypointSmoothingEnabledSnapshot waypointSmoothingStrength:waypointSmoothingStrengthSnapshot waypointAutoAddFaces:false extraFaceCount:extraFaceCountSnapshot widthSegmentCount:widthSegmentCountSnapshot noisePhase:noisePhaseSnapshot noiseSeparateAxes:noiseSeparateAxesSnapshot noiseUniformStrength:noiseUniformStrengthSnapshot noiseXStrength:noiseXStrengthSnapshot noiseYStrength:noiseYStrengthSnapshot noiseZStrength:noiseZStrengthSnapshot
             )
         )
     )
@@ -2343,7 +2351,8 @@ fn XP_LG_FlushLiveUpdate =
         )
         catch ()
         local resultSummary = if showErrorsSnapshot then ((endSnapshot.count as string) + " 条分支；首条实际 " + (actualFaceCount as string) + " 个四边面") else ("已原位更新「" + generatedNode.name + "」，实际 " + (actualFaceCount as string) + " 个四边面")
-        try (XP_LG_Rollout.lblWaypointActualFaces.text = if showErrorsSnapshot then ("新组首条：基础 " + (faceCountSnapshot as string) + " + 额外 " + (extraFaceCountSnapshot as string) + " = 实际 " + (actualFaceCount as string) + " 面。") else ("当前面片：基础 " + (faceCountSnapshot as string) + " + 额外 " + (extraFaceCountSnapshot as string) + " = 实际 " + (actualFaceCount as string) + " 面。")) catch ()
+        local longitudinalFaceCount = faceCountSnapshot + extraFaceCountSnapshot
+        try (XP_LG_Rollout.lblWaypointActualFaces.text = if showErrorsSnapshot then ("新组首条：纵向 " + (longitudinalFaceCount as string) + " × 横向 " + (widthSegmentCountSnapshot as string) + " = 总计 " + (actualFaceCount as string) + " 面。") else ("当前面片：纵向 " + (longitudinalFaceCount as string) + " × 横向 " + (widthSegmentCountSnapshot as string) + " = 总计 " + (actualFaceCount as string) + " 面。")) catch ()
         local samplingWarning = ""
         if wholeTwistEnabledSnapshot and wholeTwistSegmentsSnapshot > faceCountSnapshot do samplingWarning = samplingWarning + "；提示：平面面数低于轴向扭转分段，部分旋转变化可能无法完整表现"
         if faceCountSnapshot <= 5 and (lockStartSnapshot or lockEndSnapshot) do samplingWarning = samplingWarning + "；提示：平面面数较低，端点平滑衰减细节可能无法完整表现"
@@ -2475,7 +2484,9 @@ fn XP_LG_RefreshUI =
         XP_LG_Rollout.pbStart.object = undefined
     )
 
-    XP_LG_Rollout.lblEndpointCount.text = "有效终点：" + endpointNames.count as string + "　预计四边面：" + (endpointNames.count * (XP_LG_Rollout.spFaces.value + XP_LG_Rollout.spExtraFaces.value)) as string
+    local expectedLongitudinalFaces = XP_LG_Rollout.spFaces.value + XP_LG_Rollout.spExtraFaces.value
+    local expectedFacesPerBranch = expectedLongitudinalFaces * XP_LG_Rollout.spWidthSegments.value
+    XP_LG_Rollout.lblEndpointCount.text = "有效终点：" + endpointNames.count as string + "　预计四边面：" + (endpointNames.count * expectedFacesPerBranch) as string
     local selectedOutput = XP_LG_GetSelectedManagedOutput()
     local waypointNames = if isValidNode selectedOutput and isValidNode XP_LG_WaypointOwnerNode and selectedOutput == XP_LG_WaypointOwnerNode then XP_LG_GetWaypointNames XP_LG_WaypointNodes else #()
     XP_LG_Rollout.lbWaypoints.items = waypointNames
@@ -2487,12 +2498,18 @@ fn XP_LG_RefreshUI =
     XP_LG_Rollout.btnRemoveWaypoint.enabled = canEditWaypoints and waypointNames.count > 0
     XP_LG_Rollout.btnClearWaypoints.enabled = canEditWaypoints and waypointNames.count > 0
     local storedActualFaces = undefined
+    local storedLongitudinalFaces = undefined
+    local storedWidthSegments = undefined
     if isValidNode selectedOutput do
     (
         try (storedActualFaces = getUserProp selectedOutput "XP_LightningActualFaces") catch (storedActualFaces = undefined)
-        if storedActualFaces == undefined do storedActualFaces = XP_LG_Rollout.spFaces.value
+        try (storedLongitudinalFaces = getUserProp selectedOutput "XP_LightningActualLongitudinalFaces") catch (storedLongitudinalFaces = undefined)
+        try (storedWidthSegments = getUserProp selectedOutput "XP_LightningWidthSegments") catch (storedWidthSegments = undefined)
+        if storedLongitudinalFaces == undefined do storedLongitudinalFaces = expectedLongitudinalFaces
+        if storedWidthSegments == undefined do storedWidthSegments = 1
+        if storedActualFaces == undefined do storedActualFaces = (storedLongitudinalFaces as integer) * (storedWidthSegments as integer)
     )
-    XP_LG_Rollout.lblWaypointActualFaces.text = if storedActualFaces != undefined then ("当前面片：基础 " + (XP_LG_Rollout.spFaces.value as string) + " + 额外 " + (XP_LG_Rollout.spExtraFaces.value as string) + " = 实际 " + ((storedActualFaces as integer) as string) + " 面。") else "实际面数将在生成或更新成功后显示。"
+    XP_LG_Rollout.lblWaypointActualFaces.text = if storedActualFaces != undefined then ("当前面片：纵向 " + ((storedLongitudinalFaces as integer) as string) + " × 横向 " + ((storedWidthSegments as integer) as string) + " = 总计 " + ((storedActualFaces as integer) as string) + " 面。") else ("预计单支：纵向 " + (expectedLongitudinalFaces as string) + " × 横向 " + (XP_LG_Rollout.spWidthSegments.value as string) + " = 总计 " + (expectedFacesPerBranch as string) + " 面。")
     XP_LG_UpdateWholeTwistControlState()
     XP_LG_UpdateNoiseAxisControlState()
     XP_LG_UpdateWaypointSmoothingControlState()
@@ -2548,6 +2565,10 @@ fn XP_LG_LoadSelectedOutputIntoUI =
         )
         XP_LG_Rollout.spFaces.value = (XP_LG_ReadOutputNumber selectedOutput "XP_LightningFacesPerBranch" XP_LG_Rollout.spFaces.value) as integer
         XP_LG_Rollout.spExtraFaces.value = (XP_LG_ReadOutputNumber selectedOutput "XP_LightningExtraFaces" 0) as integer
+        local loadedWidthSegmentCount = (XP_LG_ReadOutputNumber selectedOutput "XP_LightningWidthSegments" 1) as integer
+        if loadedWidthSegmentCount < 1 do loadedWidthSegmentCount = 1
+        if loadedWidthSegmentCount > 8 do loadedWidthSegmentCount = 8
+        XP_LG_Rollout.spWidthSegments.value = loadedWidthSegmentCount
         XP_LG_Rollout.spWidth.value = XP_LG_ReadOutputNumber selectedOutput "XP_LightningRibbonWidth" XP_LG_Rollout.spWidth.value
         XP_LG_Rollout.spTwist.value = XP_LG_ReadOutputNumber selectedOutput "XP_LightningPathNoiseStrength" XP_LG_Rollout.spTwist.value
         XP_LG_Rollout.spNoiseSize.value = XP_LG_ReadOutputNumber selectedOutput "XP_LightningNoiseSize" XP_LG_Rollout.spNoiseSize.value
@@ -2613,10 +2634,22 @@ fn XP_LG_HandleSelectionChanged =
     try (XP_LG_LoadSelectedOutputIntoUI()) catch ()
 )
 
-try (destroyDialog XP_LG_Rollout) catch ()
+fn XP_LG_CloseUI =
+(
+    try
+    (
+        if XP_LG_RolloutFloater != undefined do closeRolloutFloater XP_LG_RolloutFloater
+    )
+    catch ()
+    XP_LG_RolloutFloater = undefined
+    try (destroyDialog XP_LG_Rollout) catch ()
+    true
+)
+
+XP_LG_CloseUI()
 XP_LG_SuppressLiveUpdate = false
 
-rollout XP_LG_Rollout "XP闪电面片生成器 V1.4.0" width:390 height:1215
+rollout XP_LG_Rollout "XP闪电面片生成器 V1.4.0" width:390 height:1245 autoLayoutOnResize:true
 (
     group "起点与终点"
     (
@@ -2648,6 +2681,7 @@ rollout XP_LG_Rollout "XP闪电面片生成器 V1.4.0" width:390 height:1215
     (
         spinner spFaces "平面面数：" range:[1,1000,24] type:#integer fieldWidth:75 toolTip:"规则直线 Plane 的基础长度面数；最终面数只会再加上你设置的额外加面"
         slider spExtraFaces "额外加面：" range:[0,1000,0] type:#integer width:342 toolTip:"由你手动增加长度方向四边面；最终面数严格等于平面面数加额外加面，其他参数不会暗中改变面数"
+        spinner spWidthSegments "横向分段：" range:[1,8,1] type:#integer fieldWidth:75 toolTip:"宽度方向四边面列数；总面数 =（平面面数 + 额外加面）× 横向分段，插件不会暗中修改"
         spinner spWidth "闪电宽度：" range:[0.001,1000000.0,3.0] type:#worldunits scale:0.1 fieldWidth:75 toolTip:"带状面片的总宽度"
         checkbox chkTaperEnds "面片两端平滑收尖" checked:false toolTip:"起点和每个终点平滑缩小到正常宽度的 1%，保持有效四边面和原 UV"
     )
@@ -2837,6 +2871,12 @@ rollout XP_LG_Rollout "XP闪电面片生成器 V1.4.0" width:390 height:1215
         XP_LG_RequestLiveUpdate "额外加面"
     )
 
+    on spWidthSegments changed value do
+    (
+        XP_LG_RefreshUI()
+        XP_LG_RequestLiveUpdate "横向分段"
+    )
+
     on spWidth changed value do XP_LG_RequestLiveUpdate "闪电宽度"
     on chkTaperEnds changed state do XP_LG_RequestLiveUpdate "面片两端平滑收尖"
     on spTwist changed value do XP_LG_RequestLiveUpdate "路径噪波强度"
@@ -2893,13 +2933,16 @@ rollout XP_LG_Rollout "XP闪电面片生成器 V1.4.0" width:390 height:1215
         XP_LG_StopLiveUpdateTimer()
         XP_LG_SuppressLiveUpdate = true
         callbacks.removeScripts id:#XP_LightningSelectionChanged
+        XP_LG_RolloutFloater = undefined
     )
 )
 
 fn XP_LG_ShowUI =
 (
-    try (destroyDialog XP_LG_Rollout) catch ()
-    createDialog XP_LG_Rollout
+    XP_LG_CloseUI()
+    XP_LG_RolloutFloater = newRolloutFloater "XP闪电面片生成器 V1.4.0" 410 760 lockHeight:false lockWidth:false autoLayoutOnResize:true scrollBar:#asNeeded
+    addRollout XP_LG_Rollout XP_LG_RolloutFloater border:false
+    XP_LG_RolloutFloater
 )
 
 if XP_LG_SuppressUI != true do XP_LG_ShowUI()

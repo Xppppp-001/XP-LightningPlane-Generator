@@ -23,6 +23,9 @@ global XP_LG_UpdateNoiseAxisControlState
 global XP_LG_RequestLiveUpdate
 global XP_LG_FlushLiveUpdate
 global XP_LG_Rollout
+global XP_LG_RolloutFloater
+global XP_LG_CloseUI
+global XP_LG_ShowUI
 global XP_LG_LiveUpdateBusy
 global XP_LG_LiveUpdatePending
 global XP_LG_LiveUpdateCurrentDepth
@@ -154,6 +157,7 @@ fn XP_UI_TEST_RunOwnedInstance =
     local resultText = ""
     local processId = ((dotNetClass "System.Diagnostics.Process").GetCurrentProcess()).Id
     local testedRollout = undefined
+    local testedFloater = undefined
 
     try
     (
@@ -164,13 +168,34 @@ fn XP_UI_TEST_RunOwnedInstance =
         global XP_LG_Rollout = undefined
         fileIn "E:/CodeXProject/3dsmaxLightning/dist/XP闪电面片生成器_V1.4.0.mzp" quiet:true
         testedRollout = XP_LG_Rollout
+        testedFloater = XP_LG_RolloutFloater
 
         XP_UI_TEST_Assert (testedRollout != undefined) "MZP 的 run 主脚本已定义 rollout"
+        XP_UI_TEST_Assert (testedFloater != undefined) "主界面使用可调整大小的 Rollout Floater"
         XP_UI_TEST_Assert (testedRollout.open == true) "主 rollout 处于打开状态"
         XP_UI_TEST_Assert (testedRollout.isDisplayed == true) "主 rollout 已显示"
         XP_UI_TEST_Assert (testedRollout.visible == true) "主 rollout 可见"
         XP_UI_TEST_Assert (testedRollout.hwnd != 0) "主 rollout 具有有效 HWND"
         XP_UI_TEST_Assert (testedRollout.title == "XP闪电面片生成器 V1.4.0") "主窗口中文标题正确"
+
+        XP_LG_CloseUI()
+        XP_UI_TEST_Assert (XP_LG_RolloutFloater == undefined and XP_LG_LiveUpdateTimerLoopActive == false and XP_LG_SuppressLiveUpdate == true) "关闭窗口会清理 Floater 引用并停止实时更新计时循环"
+        XP_LG_ShowUI()
+        testedRollout = XP_LG_Rollout
+        testedFloater = XP_LG_RolloutFloater
+        XP_UI_TEST_Assert (testedFloater != undefined and testedRollout.isDisplayed == true and XP_LG_LiveUpdateTimerLoopActive == true) "重复打开只创建一个新窗口并恢复实时更新计时循环"
+
+        local initialFloaterSize = testedFloater.size
+        XP_UI_TEST_Assert (initialFloaterSize.x >= 390 and initialFloaterSize.y < testedRollout.height) "主窗口默认高度短于完整控件内容"
+        testedFloater.size = [520,620]
+        windows.processPostedMessages()
+        XP_UI_TEST_Assert (testedFloater.size.x >= 500 and testedFloater.size.y <= 650) "主窗口宽度和高度可由用户调整"
+        testedRollout.scrollPos = 240
+        windows.processPostedMessages()
+        XP_UI_TEST_Assert (testedRollout.scrollPos > 0) "窗口不足以显示全部内容时可使用原生滚动条"
+        testedRollout.scrollPos = 0
+        testedFloater.size = initialFloaterSize
+        windows.processPostedMessages()
 
         local requiredControls = #(
             #(#pbStart, "拾取起点", true),
@@ -189,6 +214,7 @@ fn XP_UI_TEST_RunOwnedInstance =
             #(#spWaypointSmoothingStrength, "途经点过渡强度：", false),
             #(#spFaces, "平面面数：", true),
             #(#spExtraFaces, "额外加面：", true),
+            #(#spWidthSegments, "横向分段：", true),
             #(#spWidth, "闪电宽度：", true),
             #(#chkTaperEnds, "面片两端平滑收尖", true),
             #(#spTwist, "路径噪波强度：", true),
@@ -226,13 +252,14 @@ fn XP_UI_TEST_RunOwnedInstance =
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lbWaypoints).items.count == 0) "未选中面片时途经点列表为空"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #chkWaypointSmoothing).checked == false) "途经点平滑过渡默认关闭"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spWaypointSmoothingStrength).value == 50.0) "途经点过渡强度默认值为 50"
-        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lblWaypointActualFaces).text == "实际面数将在生成或更新成功后显示。") "实际面数初始提示正确"
+        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lblWaypointActualFaces).text == "预计单支：纵向 24 × 横向 1 = 总计 24 面。") "纵向、横向与总面数初始提示正确"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lblStatus).text == "准备就绪；选中已有面片可编辑，强制重新生成才会新建。") "中文初始状态正确"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #lblVersion).text == "XP闪电面片生成器 V1.4.0｜3ds Max 2023") "中文版本信息正确"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #btnUnityAxis) == undefined) "面板已移除 Unity／Y-Up 轴向修改按钮"
 
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spFaces).value == 24) "平面面数控件可读取"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spExtraFaces).value == 0 and (XP_UI_TEST_FindControl testedRollout #spExtraFaces).range[1] == 0 and (XP_UI_TEST_FindControl testedRollout #spExtraFaces).range[2] == 1000) "额外加面滑条默认 0，范围 0 到 1000"
+        XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spWidthSegments).value == 1 and (XP_UI_TEST_FindControl testedRollout #spWidthSegments).range[1] == 1 and (XP_UI_TEST_FindControl testedRollout #spWidthSegments).range[2] == 8) "横向分段默认 1，范围 1 到 8"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spWidth).value == 3.0) "闪电宽度控件可读取"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #chkTaperEnds).checked == false) "面片两端平滑收尖默认关闭"
         XP_UI_TEST_Assert ((XP_UI_TEST_FindControl testedRollout #spTwist).value == 15.0) "路径噪波强度控件可读取"
@@ -305,7 +332,7 @@ fn XP_UI_TEST_RunOwnedInstance =
         XP_UI_TEST_Assert (XP_LG_LiveUpdateBusy == false and XP_LG_LiveUpdatePending == false and XP_LG_LiveUpdateCurrentDepth == 0) "实时更新状态机初始为空闲"
         XP_UI_TEST_Assert (XP_LG_LiveUpdateAttemptCount == 0 and XP_LG_LiveUpdateSuccessCount == 0 and XP_LG_LiveUpdateMaxDepth == 0) "实时更新计数器初始为零"
 
-        resultText = "PASS\nPID=" + processId as string + "\nTOKEN=" + XP_UI_TEST_LaunchToken + "\nROLLOUT_HWND=" + testedRollout.hwnd as string + "\nCONTROL_COUNT=" + testedRollout.controls.count as string
+        resultText = "PASS\nPID=" + processId as string + "\nTOKEN=" + XP_UI_TEST_LaunchToken + "\nROLLOUT_HWND=" + testedRollout.hwnd as string + "\nCONTROL_COUNT=" + testedRollout.controls.count as string + "\nFLOATER_SIZE=" + initialFloaterSize as string
     )
     catch
     (
@@ -314,7 +341,11 @@ fn XP_UI_TEST_RunOwnedInstance =
 
     if (XP_UI_TEST_WriteResult resultText) != true do format "[XP_UI_TEST_FAIL] 无法写入结果文件：%\n" XP_UI_TEST_ResultPath
 
-    try (destroyDialog testedRollout) catch ()
+    try
+    (
+        if XP_LG_CloseUI != undefined then XP_LG_CloseUI() else destroyDialog testedRollout
+    )
+    catch ()
 
     -- 在真正退出前再次验证进程级令牌，避免函数被现有会话手动调用。
     if XP_UI_TEST_IsOwnedInstance() then
