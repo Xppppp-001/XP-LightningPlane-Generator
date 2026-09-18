@@ -898,6 +898,8 @@
 
 | 2026-09-18 | GitHub 开源与下载发布准备 | R-018、R-043～R-046；对照 R-001～R-008 | 已按用户授权准备 MIT LICENSE、README 公开下载入口与独立 ribbon-v1.2.0 发布说明；当前 MZP SHA256 仍为 `8E18914C43FB3CDF770915DF756D27E3F9FB9118C79BBED4438DFCB12173DCFC`，沿用已验证的 7759 项 Max 2023 PASS 证据，不改动插件源码、算法、UV 或生成器包。已检查已提交历史的常见令牌／私钥模式无命中，无关认证二维码、临时脚本、PID 与失败启动日志均不在 Git 仓库内。许可证同步默认 main 与现有开发分支；发布附件使用 XP-Ribbon-Widener_V1.2.0.mzp，并附许可证与 SHA256。 | 公开可见性切换、Release 创建及匿名下载验证随后执行；原模型／贴图、物理拖放和专项异常验证仍待完成，R-045 重叠未修复。 |
 
+| 2026-09-18 | GitHub 公开开源与扩宽下载发布完成 | R-018、R-043～R-046；对照 R-001～R-008 | 仓库已切换 PUBLIC，GitHub repo 元数据 isPrivate=false，默认 main 和开发分支均有 MIT LICENSE。已在目标提交 `eaf89044c219bc68b6ccef2b3d0aece2fc1d4d1f` 创建正式非草稿发布 ribbon-v1.2.0，附件含 XP-Ribbon-Widener_V1.2.0.mzp、LICENSE.txt、SHA256SUMS.txt。发布页 `https://github.com/Xppppp-001/XP-LightningPlane-Generator/releases/tag/ribbon-v1.2.0`；直达下载 `https://github.com/Xppppp-001/XP-LightningPlane-Generator/releases/download/ribbon-v1.2.0/XP-Ribbon-Widener_V1.2.0.mzp`。匿名仓库页／发布页 HTTP 200，匿名实际下载 SHA256 匹配 `8E18914C43FB3CDF770915DF756D27E3F9FB9118C79BBED4438DFCB12173DCFC`，完整证据 artifacts/ribbon-public-release-verification.json。CLI 首次创建发布失败后已通过正式 API 成功创建；匿名 REST 共享出口限流，使用匿名 HTML 与附件实下载完成验证。README 下载入口同步；对照 R-001～R-008：全部插件源码／包未改动，verify-package 通过，沿用既有扩宽 7759 项 PASS，未重跑 Max。 | 开源和公开下载均完成；默认 main 仅添加许可证，既有草稿 PR 未合并。用户原模型／贴图、物理拖放和专项异常测试仍待验收，R-045 重叠未修复。下一步在模型副本验收下载包，保持固定 Max 2023 exe 入口。 |
+
 ## 6. 需求变更记录
 
 | 日期 | 变更内容 | 状态 |
@@ -961,4 +963,4 @@
 | 2026-09-18 | 用户授权后台测试首尾渐变，并强调不能修改原 UV；R-046 增补全部映射通道坐标／数量／索引完全不变和隔离空场景测试，按已提交设计进入实现 | 已确认；本轮实现与验证 |
 | 2026-09-18 | 用户纠正测试入口并要求记录：固定使用 `C:\Program Files\Autodesk\3ds Max 2023\3dsmax.exe`，不得改用 Batch 或其他版本；只运行隔离空场景测试 | 已确认；永久写入项目测试规则 |
 | 2026-09-18 | 用户要求执行当前扩宽工具 V1.2.0 备份和上传；按 R-018 保存完整源码、MZP、需求说明、实机证据及 SHA256，上传现有私有 GitHub 备份分支 | 已完成；提交 4ea9690，远端文件与下载 SHA256 均一致 |
-| 2026-09-18 | 用户要求把 GitHub 仓库开源并给出下载地址；改为公开、添加 MIT 许可证并以 ribbon-v1.2.0 发布扩宽 MZP，验证公开下载 | 已授权；本轮执行 |
+| 2026-09-18 | 用户要求把 GitHub 仓库开源并给出下载地址；改为公开、添加 MIT 许可证并以 ribbon-v1.2.0 发布扩宽 MZP，验证公开下载 | 已完成；PUBLIC／MIT，匿名网页和下载 SHA256 验证通过 |
