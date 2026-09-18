@@ -1,0 +1,21 @@
+{
+  "Status": "PASS",
+  "Timestamp": "2026-09-18T18:51:04.0269978+08:00",
+  "Repository": "https://github.com/Xppppp-001/XP-LightningPlane-Generator",
+  "Private": false,
+  "License": "MIT",
+  "Tag": "ribbon-v1.2.0",
+  "Release": "https://github.com/Xppppp-001/XP-LightningPlane-Generator/releases/tag/ribbon-v1.2.0",
+  "TargetCommit": "eaf89044c219bc68b6ccef2b3d0aece2fc1d4d1f",
+  "Download": "https://github.com/Xppppp-001/XP-LightningPlane-Generator/releases/download/ribbon-v1.2.0/XP-Ribbon-Widener_V1.2.0.mzp",
+  "AnonymousRepositoryHTTP": 200,
+  "AnonymousReleaseHTTP": 200,
+  "AnonymousDownloadVerified": true,
+  "SHA256": "8E18914C43FB3CDF770915DF756D27E3F9FB9118C79BBED4438DFCB12173DCFC",
+  "Assets": [
+    "LICENSE.txt",
+    "SHA256SUMS.txt",
+    "XP-Ribbon-Widener_V1.2.0.mzp"
+  ],
+  "Note": "Anonymous REST API was rate-limited; anonymous HTML and actual asset download verified instead."
+}
