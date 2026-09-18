@@ -2,6 +2,8 @@
 
 面向 Autodesk 3ds Max 2023 中文版的 MaxScript 工具，可从一个起点生成通往多个终点的带状闪电模型，并自动创建从左到右的 UV。
 
+项目采用 [MIT 开源许可证](LICENSE)。扩宽工具 V1.2.0：[发布页](https://github.com/Xppppp-001/XP-LightningPlane-Generator/releases/tag/ribbon-v1.2.0) · [直接下载 MZP](https://github.com/Xppppp-001/XP-LightningPlane-Generator/releases/download/ribbon-v1.2.0/XP-Ribbon-Widener_V1.2.0.mzp)。
+
 ## 安装与启动
 
 另有独立的 **XP模型扩宽工具 V1.2.0**：把 `dist/XP模型扩宽工具_V1.2.0.mzp` 拖入 Max，选规则四边面带状 Editable Poly 的横向边后，自动补齐整排并保持中线扩宽；支持首尾宽度倍率渐变，保留原 UV 数据。详见 [模型扩宽工具使用说明](模型扩宽工具使用说明.md)。构建命令为 `powershell -ExecutionPolicy Bypass -File tools/build-ribbon-widener.ps1`；隔离后台测试入口 `tools/test-ribbon-widener.ps1` 固定使用用户指定的 `C:\Program Files\Autodesk\3ds Max 2023\3dsmax.exe`。
