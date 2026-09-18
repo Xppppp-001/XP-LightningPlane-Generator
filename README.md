@@ -4,6 +4,8 @@
 
 ## 安装与启动
 
+另有独立的 **XP模型扩宽工具 V1.2.0**：把 `dist/XP模型扩宽工具_V1.2.0.mzp` 拖入 Max，选规则四边面带状 Editable Poly 的横向边后，自动补齐整排并保持中线扩宽；支持首尾宽度倍率渐变，保留原 UV 数据。详见 [模型扩宽工具使用说明](模型扩宽工具使用说明.md)。构建命令为 `powershell -ExecutionPolicy Bypass -File tools/build-ribbon-widener.ps1`；隔离后台测试入口 `tools/test-ribbon-widener.ps1` 固定使用用户指定的 `C:\Program Files\Autodesk\3ds Max 2023\3dsmax.exe`。
+
 1. 构建后取得 `dist/XP闪电面片生成器_V1.4.0.mzp`。
 2. 启动 3ds Max 2023。
 3. 将 `.mzp` 文件从资源管理器直接拖入 3ds Max 视口。

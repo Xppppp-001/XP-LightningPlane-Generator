@@ -1,0 +1,7 @@
+PASS - backup verification
+Timestamp: 2026-09-18T17:28:45.9319648+08:00
+ZIP entries byte-matched: 45
+Independent package/requirements/manual copies: byte-identical
+Excluded: .git, build, old backups, unrelated auth/scripts, PID and failed-start logs
+Original Max runtime evidence: 3598 + 4161 = 7759 PASS
+No MaxScript geometry or generator package changed during backup
