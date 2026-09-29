@@ -67,3 +67,7 @@
 - 最终实机结果保存在 `artifacts/gui-smoke-result.txt` 和 `artifacts/ui-smoke-final.txt`，两者均应为 `PASS`。
 
 完整需求和逐项验收状态见 `REQUIREMENTS.md`。
+
+## 独立模型扩宽工具
+
+[XP模型扩宽工具 V1.2.0 中文说明](模型扩宽工具使用说明.md) · [发布页](https://github.com/Xppppp-001/XP-LightningPlane-Generator/releases/tag/ribbon-v1.2.0) · [直接下载 MZP](https://github.com/Xppppp-001/XP-LightningPlane-Generator/releases/download/ribbon-v1.2.0/XP-Ribbon-Widener_V1.2.0.mzp)
