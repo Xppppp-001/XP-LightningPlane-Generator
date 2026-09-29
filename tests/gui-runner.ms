@@ -37,7 +37,9 @@ fn XP_GUI_RunSmokeTest =
         try (errorSourceFile = getErrorSourceFileName()) catch (errorSourceFile = "<不可用>")
         try (errorSourceLine = getErrorSourceFileLine()) catch (errorSourceLine = -1)
         try (exceptionStack = getCurrentExceptionStack()) catch (exceptionStack = "<不可用>")
-        resultText = "FAIL\nERROR=" + exceptionText + "\nSOURCE=" + errorSourceFile + "\nLINE=" + errorSourceLine as string + "\nLAST_PASS=" + lastPassedAssertion + "\nSTACK=" + exceptionStack
+        local lightningError = ""
+        try (lightningError = XP_LG_LastError as string) catch (lightningError = "<不可用>")
+        resultText = "FAIL\nERROR=" + exceptionText + "\nSOURCE=" + errorSourceFile + "\nLINE=" + errorSourceLine as string + "\nLAST_PASS=" + lastPassedAssertion + "\nLIGHTNING_ERROR=" + lightningError + "\nSTACK=" + exceptionStack
     )
 
     local outputStream = createFile resultPath

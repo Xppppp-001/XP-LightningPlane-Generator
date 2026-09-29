@@ -1,0 +1,6 @@
+﻿name "XP模型扩宽工具"
+version 1
+description "XP模型扩宽工具 V1.2.0｜3ds Max 2023 中文横截面宽度与首尾渐变"
+run "XP_RibbonWidener.ms"
+drop "XP_RibbonWidener.ms"
+clear temp

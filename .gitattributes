@@ -1,0 +1,2 @@
+# Preserve this snapshot's exact bytes so SHA256 survives Git checkout/download.
+/backups/2026-09-18_Ribbon_V120_R043_R046_verified_snapshot/** -text

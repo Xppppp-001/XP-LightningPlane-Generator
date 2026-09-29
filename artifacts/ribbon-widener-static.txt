@@ -1,0 +1,12 @@
+PASS - static packaging checks; runtime evidence is reported separately
+Timestamp: 2026-09-18T17:27:19.9159094+08:00
+UTF-8 BOM: source, control, regression script
+Balanced lexical delimiters: source and regression script
+Forward internal function references: 0
+Version: V1.2.0; full-section and gradient functions present; no UV mutation APIs
+MZP entries: mzp.run, XP_RibbonWidener.ms; run/drop paths verified
+Both archived files match workspace bytes
+Source SHA256: ADEC3A89EF6D51A459B82AD398F5E395666007368F62459802B0BCCEF79C669D
+Package SHA256: 8E18914C43FB3CDF770915DF756D27E3F9FB9118C79BBED4438DFCB12173DCFC
+Runtime evidence: artifacts/ribbon-gui-status.txt, ribbon-widener-smoke.txt, ribbon-gradient-smoke.txt
+PENDING manual validation: Windows physical drag/drop and original user model/texture
